@@ -1,12 +1,10 @@
 package net.raysforge.rest.client;
 
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.io.Reader;
+import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.Charset;
+import java.util.HashMap;
 import java.util.Map;
 
 import javax.xml.bind.DatatypeConverter;
@@ -15,23 +13,30 @@ import net.raysforge.commons.HttpsUtils;
 import net.raysforge.commons.Json;
 
 public class GenericRestClient {
-	private static final String WWW_AUTHENTICATE = "WWW-Authenticate";
-	private String baseURL;
-	private String user;
-	private String pass;
-	private Auth auth;
+	static final String WWW_AUTHENTICATE = "WWW-Authenticate";
+	String baseURL;
+	protected String user;
+	protected String pass;
+	Auth auth;
 	Digest digest;
+	protected HashMap<String, String> headerMap = new HashMap<String, String>();
+	public boolean debugURL = false;
 
 	public static enum Auth {
-		Basic, Digest
+		Basic, Digest, Token
 	}
 
 	public GenericRestClient(String baseURL, String user, String pass, Auth auth) {
-		this.baseURL = baseURL;
+
+		this.baseURL = baseURL.endsWith("/") ? baseURL : baseURL + "/";
 		this.user = user;
 		this.pass = pass;
 		this.auth = auth;
 		HttpsUtils.trustEveryone();
+	}
+
+	public void setHeader(String key, String value) {
+		headerMap.put(key, value);
 	}
 
 	@SuppressWarnings({ "unchecked" })
@@ -47,6 +52,8 @@ public class GenericRestClient {
 	}
 
 	public Object getData(String path) throws IOException {
+		if (debugURL)
+			System.out.println(baseURL + path);
 		URL url = new URL(baseURL + path);
 		HttpURLConnection con = (HttpURLConnection) url.openConnection();
 
@@ -59,6 +66,8 @@ public class GenericRestClient {
 			String authorization = digest.calculateDigestAuthorization("GET", con.getURL().getPath());
 			con.setRequestProperty("Authorization", authorization);
 		}
+
+		headerMap.forEach((k, v) -> con.setRequestProperty(k, v));
 
 		int responseCode = con.getResponseCode();
 		if (responseCode == 404) {
@@ -91,9 +100,9 @@ public class GenericRestClient {
 		con.setRequestProperty("charset", "utf-8");
 		con.setRequestProperty("Content-Length", Integer.toString(data.getBytes(Charset.forName("UTF-8")).length));
 		con.setUseCaches(false);
-		
+
 		if (auth == Auth.Basic) {
-			String b64 = DatatypeConverter.printBase64Binary((user + ":" + pass).getBytes());
+			String b64 = DatatypeConverter.printBase64Binary((user + ":" + pass).getBytes("ISO-8859-1"));
 			con.setRequestProperty("Authorization", "Basic " + b64);
 		}
 
@@ -101,6 +110,8 @@ public class GenericRestClient {
 			String authorization = digest.calculateDigestAuthorization("GET", con.getURL().getPath());
 			con.setRequestProperty("Authorization", authorization);
 		}
+
+		headerMap.forEach((k, v) -> con.setRequestProperty(k, v));
 
 		try (OutputStream os = con.getOutputStream();) {
 			os.write(data.getBytes(Charset.forName("UTF-8")));
