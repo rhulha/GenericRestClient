@@ -11,6 +11,7 @@ import javax.xml.bind.DatatypeConverter;
 
 import net.raysforge.commons.HttpsUtils;
 import net.raysforge.commons.Json;
+import net.raysforge.commons.StreamUtils;
 
 public class GenericRestClient {
 	static final String WWW_AUTHENTICATE = "WWW-Authenticate";
@@ -51,12 +52,7 @@ public class GenericRestClient {
 		}
 	}
 
-	public Object getData(String path) throws IOException {
-		if (debugURL)
-			System.out.println(baseURL + path);
-		URL url = new URL(baseURL + path);
-		HttpURLConnection con = (HttpURLConnection) url.openConnection();
-
+	private void setRequestProperties(HttpURLConnection con) {
 		if (auth == Auth.Basic) {
 			String b64 = DatatypeConverter.printBase64Binary((user + ":" + pass).getBytes());
 			con.setRequestProperty("Authorization", "Basic " + b64);
@@ -66,17 +62,23 @@ public class GenericRestClient {
 			String authorization = digest.calculateDigestAuthorization("GET", con.getURL().getPath());
 			con.setRequestProperty("Authorization", authorization);
 		}
-
 		headerMap.forEach((k, v) -> con.setRequestProperty(k, v));
+	}
 
+	public InputStream getBodyInputStream(String path) throws IOException {
+		if (debugURL)
+			System.out.println(baseURL + path);
+		URL url = new URL(baseURL + path);
+		HttpURLConnection con = (HttpURLConnection) url.openConnection();
+		setRequestProperties(con);
 		int responseCode = con.getResponseCode();
 		if (responseCode == 404) {
-			System.out.println("404 for " + path);
+			System.out.println("error 404");
 			return null;
 		} else if (responseCode == 401) {
 			if (auth == Auth.Digest) {
 				digest = new Digest(user, pass, con.getHeaderField(WWW_AUTHENTICATE));
-				getData(path);
+				return getBodyInputStream(path);
 			} else {
 				System.out.println("error 401");
 			}
@@ -84,8 +86,18 @@ public class GenericRestClient {
 		} else if (responseCode < 200 || responseCode >= 300) {
 			throw new RuntimeException("HTTP RESPONSE CODE:" + responseCode);
 		}
+		return con.getInputStream();
+	}
 
-		Reader r = new InputStreamReader(con.getInputStream());
+	public String getUTF8Body(String path) throws IOException {
+		return StreamUtils.readCompleteInputStream(getBodyInputStream(path), "UTF-8");
+	}
+
+	public Object getData(String path) throws IOException {
+		InputStream is = getBodyInputStream(path);
+		if(is==null)
+			return null;
+		Reader r = new InputStreamReader(is, "UTF-8");
 		Json json = new Json();
 		return json.parse(r);
 	}
