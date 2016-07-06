@@ -90,7 +90,10 @@ public class GenericRestClient {
 	}
 
 	public String getUTF8Body(String path) throws IOException {
-		return StreamUtils.readCompleteInputStream(getBodyInputStream(path), "UTF-8");
+		InputStream bodyInputStream = getBodyInputStream(path);
+		if(bodyInputStream==null)
+			return null;
+		return StreamUtils.readCompleteInputStream(bodyInputStream, "UTF-8");
 	}
 
 	public Object getData(String path) throws IOException {
