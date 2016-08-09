@@ -121,6 +121,10 @@ public class GenericRestClient {
 			con.setRequestProperty("Authorization", "Basic " + b64);
 		}
 
+		if (auth == Auth.Token) {
+			con.setRequestProperty("Authorization", "Bearer " + pass);
+		}
+
 		if (digest != null && auth == Auth.Digest) {
 			String authorization = digest.calculateDigestAuthorization("GET", con.getURL().getPath());
 			con.setRequestProperty("Authorization", authorization);
