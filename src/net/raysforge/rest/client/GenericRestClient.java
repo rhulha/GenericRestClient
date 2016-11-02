@@ -24,7 +24,7 @@ public class GenericRestClient {
 	public boolean debugURL = false;
 
 	public static enum Auth {
-		Basic, Digest, Token
+		None, Basic, Digest, Token
 	}
 
 	public GenericRestClient(String baseURL, String user, String pass, Auth auth) {
