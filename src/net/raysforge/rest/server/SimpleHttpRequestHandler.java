@@ -31,7 +31,7 @@ public abstract class SimpleHttpRequestHandler implements Runnable {
 	public HashMap<String, String> getHeaderMap() {
 		return headerMap;
 	}
-
+	
 	private HashMap<String, String> getHeaderMap(InputStream is) throws IOException {
 		HashMap<String, String> headerMap = new HashMap<String, String>();
 		for (String line; (line = StreamUtils.readOneLineISO88591(is)) != null;) {
@@ -66,10 +66,17 @@ public abstract class SimpleHttpRequestHandler implements Runnable {
 			e.printStackTrace();
 		}
 	}
+	
+	private void write(OutputStream os, String s) throws IOException {
+		os.write(s.getBytes(Charset.forName("UTF-8")));
+	}
 
 	public void run2() throws IOException {
-		try (InputStream httpIS = client.getInputStream(); Writer httpw = new OutputStreamWriter(client.getOutputStream())) {
-			String[] requestLine = StreamUtils.readOneLineISO88591(httpIS).split(" ");
+		try (InputStream httpIS = client.getInputStream(); OutputStream httpOS = client.getOutputStream();) {; 
+			String line = StreamUtils.readOneLineISO88591(httpIS);
+			if(line==null)
+				return;
+			String[] requestLine = line.split(" ");
 			String method = requestLine[0];
 			String path = requestLine[1];
 			//String version = split[2];
@@ -114,18 +121,27 @@ public abstract class SimpleHttpRequestHandler implements Runnable {
 			}
 
 			if (!response.error) {
-				httpw.write("HTTP/1.0 " + response.statusCode + " OK\n");
+				write(httpOS, "HTTP/1.0 " + response.statusCode + " OK\n");
 				//w.write("Vary: Accept-Encoding");
-				httpw.write("Content-Length: " + response.message.length() + "\n");
+				if(response.isBinary) {
+					write(httpOS, "Content-Length: " + response.bytes.length + "\n");
+				} else {
+					write(httpOS, "Content-Length: " + response.message.getBytes(Charset.forName("UTF-8")).length + "\n");
+				}
 				//w.write("Keep-Alive: timeout=2, max=999");
-				httpw.write("Connection: Close\n"); // Keep-Alive
-				httpw.write("Content-Type: "+response.contentType+"\n\n");
-				httpw.write(response.message);
+				write(httpOS, "Connection: Close\n"); // Keep-Alive
+				write(httpOS, "Content-Type: "+response.contentType+"\n\n");
+				if(response.isBinary) {
+					httpOS.write(response.bytes);
+				} else {
+					write(httpOS, response.message);
+				}
+				
 			} else {
 				System.out.println("ERROR: " + response);
-				httpw.write("HTTP/1.0 " + response.statusCode + " " + response.message + "\n");
-				httpw.write("Content-Length: 0\n");
-				httpw.write("Connection: Close\n\n"); // Keep-Alive ?
+				write(httpOS, "HTTP/1.0 " + response.statusCode + " " + response.message + "\n");
+				write(httpOS, "Content-Length: 0\n");
+				write(httpOS, "Connection: Close\n\n"); // Keep-Alive ?
 			}
 		}
 	}

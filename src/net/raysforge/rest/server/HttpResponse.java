@@ -4,7 +4,9 @@ public class HttpResponse {
 	
 	public final boolean error;
 	public final int statusCode;
-	public final String message;
+	public String message;
+	public byte bytes[];
+	public boolean isBinary = false;
 	public String contentType = "application/json";
 	
 	public HttpResponse(boolean error, int statusCode, String message) {
@@ -23,6 +25,14 @@ public class HttpResponse {
 		this.error = false;
 		this.statusCode = 200;
 		this.message = message;
+	}
+
+	public HttpResponse(byte bytes[], String contentType) {
+		this.error = false;
+		this.statusCode = 200;
+		this.bytes = bytes;
+		this.contentType = contentType;
+		this.isBinary = true;
 	}
 
 	public HttpResponse(String message, String contentType) {
