@@ -136,6 +136,12 @@ public abstract class SimpleHttpRequestHandler implements Runnable {
 				} else {
 					write(httpOS, response.message);
 				}
+
+				if(response.message != null && response.message.equals("bye")) {
+					System.out.println("shutdown command received.");
+					System.exit(0);
+				}
+
 				
 			} else {
 				System.out.println("ERROR: " + response);

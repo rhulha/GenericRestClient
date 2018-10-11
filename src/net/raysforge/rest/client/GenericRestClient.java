@@ -40,6 +40,10 @@ public class GenericRestClient {
 		headerMap.put(key, value);
 	}
 
+	public void removeHeader(String key) {
+		headerMap.remove(key);
+	}
+
 	@SuppressWarnings({ "unchecked" })
 	public Map<String, Object> getDataAsMap(String path) throws IOException {
 		Object data = getData(path);
@@ -84,7 +88,9 @@ public class GenericRestClient {
 			}
 
 		} else if (responseCode < 200 || responseCode >= 300) {
-			throw new RuntimeException("HTTP RESPONSE CODE:" + responseCode);
+			InputStream is = responseCode < HttpURLConnection.HTTP_BAD_REQUEST ? con.getInputStream() : con.getErrorStream();
+			String response = StreamUtils.readCompleteInputStream(is, "ISO-8859-1");
+			throw new RuntimeException("HTTP RESPONSE CODE:" + responseCode + ", \n" + response);
 		}
 		return con.getInputStream();
 	}
@@ -136,7 +142,14 @@ public class GenericRestClient {
 			os.write(data.getBytes(Charset.forName("UTF-8")));
 		}
 
-		int responseCode = con.getResponseCode();
+		int responseCode=0;
+		try {
+			responseCode = con.getResponseCode();
+		} catch (IOException ioe) {
+			System.out.println("Server returned HTTP response code: 400 ?");
+			responseCode=400;
+		}
+		
 		if (responseCode == 401) {
 			if (auth == Auth.Digest) {
 				if (digest != null) {
@@ -153,7 +166,9 @@ public class GenericRestClient {
 
 		//System.out.println(responseCode);
 
-		try (Reader r = new InputStreamReader(con.getInputStream())) {
+		InputStream is = responseCode < HttpURLConnection.HTTP_BAD_REQUEST ? con.getInputStream() : con.getErrorStream(); 
+		
+		try (Reader r = new InputStreamReader(is)) {
 			Json json = new Json();
 			return json.parse(r);
 		}
